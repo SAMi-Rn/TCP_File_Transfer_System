@@ -1,0 +1,4 @@
+/Users/samiroudgarian/CLionProjects/socket_fsm/cmake-build-debug/CMakeFiles/server.dir
+/Users/samiroudgarian/CLionProjects/socket_fsm/cmake-build-debug/CMakeFiles/client.dir
+/Users/samiroudgarian/CLionProjects/socket_fsm/cmake-build-debug/CMakeFiles/edit_cache.dir
+/Users/samiroudgarian/CLionProjects/socket_fsm/cmake-build-debug/CMakeFiles/rebuild_cache.dir
