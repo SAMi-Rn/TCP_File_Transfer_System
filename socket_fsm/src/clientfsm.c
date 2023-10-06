@@ -62,20 +62,28 @@ int main(int argc, char *argv[]) {
                 break;
 
             case STATE_CONNECT_SOCKET:
-                socket_connect(sockfd, &addr, port);
-                current_state = STATE_SEND_FILES;
+               if( socket_connect(sockfd, &addr, port) == -1){
+                   current_state = STATE_ERROR;
+               }else {
+                   current_state = STATE_SEND_FILES;
+               }
                 break;
 
             case STATE_SEND_FILES:
                 for (int i = 0; i < num_files; ++i) {
-                    send_file(sockfd, file_paths[i]);
+                    if(send_file(sockfd, file_paths[i])== -1){
+                        current_state = STATE_ERROR;
+                    }
                 }
                 current_state = STATE_CLEANUP;
                 break;
 
             case STATE_CLEANUP:
-                socket_close(sockfd);
-                success = 0;  // End the loop.
+                if(socket_close(sockfd) == -1){
+                    current_state = STATE_ERROR;
+                }else {
+                    success = 0;  // End the loop.
+                }
                 break;
 
             case STATE_ERROR:
