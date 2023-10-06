@@ -10,5 +10,4 @@ add_executable(client src/client.c
         src/client.h
         src/clientfsm.c
         src/clientfsm.h
-        src/fsm.c
-        src/fsm.h)
+)
