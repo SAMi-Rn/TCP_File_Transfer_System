@@ -18,6 +18,11 @@
 #include <unistd.h>
 #include <libgen.h>
 #include <time.h>
+#include <netinet/in.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdint.h>
 
 int parse_arguments(int argc, char *argv[], char **address, char **port, char ***file_paths, int *num_files);
 int handle_arguments(const char *binary_name, const char *address, const char *port_str, in_port_t *port);
@@ -33,5 +38,21 @@ int send_file(int sockfd, const char *file_path);
 #define UNKNOWN_OPTION_MESSAGE_LEN 24
 #define BASE_TEN 10
 
+// Helper macros
+#define SET_ERROR(ctx, msg, from_state, to_state) \
+    do { \
+        ctx->error_message = msg; \
+        ctx->error_from_state = from_state; \
+        ctx->error_to_state = to_state; \
+        ctx->error_line = __LINE__; \
+    } while (0)
 
+#define SET_TRACE(ctx, msg, curr_state) \
+    do { \
+        ctx->trace_message = msg; \
+        ctx->trace_state = curr_state; \
+        ctx->trace_line = __LINE__; \
+        printf("TRACE: %s Entered state %d at line %d.\n", \
+               ctx->trace_message, ctx->trace_state, ctx->trace_line); \
+    } while (0)
 #endif //SOCKET_FSM_CLIENT_H

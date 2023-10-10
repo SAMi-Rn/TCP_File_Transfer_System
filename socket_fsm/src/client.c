@@ -67,8 +67,8 @@ int handle_arguments(const char *binary_name, const char *address, const char *p
         return -1;
         usage(binary_name, EXIT_FAILURE, "The address is required.");
     }
-    in_port_t *parsed_value;
-    *port = parse_in_port_t(binary_name, port_str, parsed_value);
+
+    parse_in_port_t(binary_name, port_str, port);
     return 0;
 }
 

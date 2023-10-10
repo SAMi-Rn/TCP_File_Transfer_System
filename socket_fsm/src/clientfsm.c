@@ -1,26 +1,28 @@
 #include "client.h"
+
 typedef enum {
     STATE_PARSE_ARGUMENTS,
     STATE_HANDLE_ARGUMENTS,
     STATE_CONVERT_ADDRESS,
-    STATE_CREATE_SOCKET,
-    STATE_CONNECT_SOCKET,
-    STATE_SEND_FILES,
+    STATE_SOCKET_CREATE,
+    STATE_SOCKET_CONNECT,
+    STATE_SEND_FILE,
     STATE_CLEANUP,
+    STATE_EXIT,
     STATE_ERROR
 } ClientState;
 
 typedef struct {
-    ClientState error_state;         // The state in which the error occurred
-    ClientState next_intended_state; // The next state we intended to move to
-    const char* error_message;       // A description of the error
-} ErrorContext;
+    ClientState state;
+    ClientState (*state_handler)(void* context);
+    ClientState next_states[2];  // 0 for success, 1 for failure
+} FSMState;
 
-ErrorContext error_context; // Global error context
-int main(int argc, char *argv[]) {
-    ClientState current_state = STATE_PARSE_ARGUMENTS;
-    int success = 1;  // A flag to indicate if the state processing was successful.
+typedef ClientState (*StateHandlerFunc)(void* context);
 
+typedef struct {
+    int argc;
+    char **argv;
     char *address;
     char *port_str;
     in_port_t port;
@@ -28,73 +30,150 @@ int main(int argc, char *argv[]) {
     int sockfd;
     char **file_paths;
     int num_files;
+    int current_file_index;
+    char *trace_message;
+    ClientState trace_state;
+    int trace_line;
+    char *error_message;
+    ClientState error_from_state;
+    ClientState error_to_state;
+    int error_line;
+} FSMContext;
 
-    while (success) {
-        switch (current_state) {
-            case STATE_PARSE_ARGUMENTS:
-                if (parse_arguments(argc, argv, &address, &port_str, &file_paths, &num_files) == -1) {
-                    current_state = STATE_ERROR;
-                } else {
-                    current_state = STATE_HANDLE_ARGUMENTS;
-                }
-                break;
 
-            case STATE_HANDLE_ARGUMENTS:
-                if (handle_arguments(argv[0], address, port_str, &port) == -1) {
-                    current_state = STATE_ERROR;
-                } else {
-                    current_state = STATE_CONVERT_ADDRESS;
-                }
-                break;
+ClientState parse_arguments_handler(void* ctx) {
+    FSMContext* context = (FSMContext*) ctx;
+    SET_TRACE(context, "Entering parse_arguments_handler .", STATE_PARSE_ARGUMENTS);
 
-            case STATE_CONVERT_ADDRESS:
-                convert_address(address, &addr);
-                current_state = STATE_CREATE_SOCKET;
-                break;
+    if (parse_arguments(context->argc, context->argv, &context->address, &context->port_str, &context->file_paths, &context->num_files) != 0) {
+        SET_ERROR(context, "Failed to parse arguments.", STATE_PARSE_ARGUMENTS, STATE_ERROR);
+        return STATE_ERROR;
+    }
+    return STATE_HANDLE_ARGUMENTS;
+}
+ClientState handle_arguments_handler(void* ctx) {
+    FSMContext* context = (FSMContext*) ctx;
+    SET_TRACE(context, "Entering handle_arguments_handler.", STATE_HANDLE_ARGUMENTS);
 
-            case STATE_CREATE_SOCKET:
-                sockfd = socket_create(addr.ss_family, SOCK_STREAM, 0);
-                if (sockfd == -1) {
-                    current_state = STATE_ERROR;
-                } else {
-                    current_state = STATE_CONNECT_SOCKET;
-                }
-                break;
+    if (handle_arguments(context->argv[0], context->address, context->port_str, &context->port) != 0) {
+        SET_ERROR(context, "Failed to handle arguments.", STATE_HANDLE_ARGUMENTS, STATE_ERROR);
+        return STATE_ERROR;
+    }
+    return STATE_CONVERT_ADDRESS;
+}
 
-            case STATE_CONNECT_SOCKET:
-               if( socket_connect(sockfd, &addr, port) == -1){
-                   current_state = STATE_ERROR;
-               }else {
-                   current_state = STATE_SEND_FILES;
-               }
-                break;
+ClientState convert_address_handler(void* ctx) {
+    FSMContext* context = (FSMContext*) ctx;
+    SET_TRACE(context, "Entering convert_address_handler.", STATE_CONVERT_ADDRESS);
 
-            case STATE_SEND_FILES:
-                for (int i = 0; i < num_files; ++i) {
-                    if(send_file(sockfd, file_paths[i])== -1){
-                        current_state = STATE_ERROR;
-                    }
-                }
-                current_state = STATE_CLEANUP;
-                break;
+    if (convert_address(context->address, &context->addr) != 0) {
+        SET_ERROR(context, "Failed to convert address.", STATE_CONVERT_ADDRESS, STATE_ERROR);
+        return STATE_ERROR;
+    }
+    return STATE_SOCKET_CREATE;
+}
 
-            case STATE_CLEANUP:
-                if(socket_close(sockfd) == -1){
-                    current_state = STATE_ERROR;
-                }else {
-                    success = 0;  // End the loop.
-                }
-                break;
 
-            case STATE_ERROR:
-                fprintf(stderr, "Error detected in state: %d\n", error_context.error_state);
-                fprintf(stderr, "Intended to move to state: %d\n", error_context.next_intended_state);
-                fprintf(stderr, "Reason: %s\n", error_context.error_message);
-                return EXIT_FAILURE;
+ClientState socket_create_handler(void* ctx) {
+    FSMContext* context = (FSMContext*) ctx;
+    SET_TRACE(context, "Entering socket_create_handler.", STATE_SOCKET_CREATE);
+
+    context->sockfd = socket_create(AF_INET, SOCK_STREAM, 0);
+    if (context->sockfd == -1) {
+        SET_ERROR(context, "Failed to create socket.", STATE_SOCKET_CREATE, STATE_ERROR);
+        return STATE_ERROR;
+    }
+    return STATE_SOCKET_CONNECT;
+}
+
+ClientState socket_connect_handler(void* ctx) {
+    FSMContext* context = (FSMContext*) ctx;
+    SET_TRACE(context, "Entering socket_connect_handler.", STATE_SOCKET_CONNECT);
+
+    if (socket_connect(context->sockfd, &context->addr, context->port) != 0) {
+        SET_ERROR(context, "Failed to connect socket.", STATE_SOCKET_CONNECT, STATE_ERROR);
+        return STATE_ERROR;
+    }
+    return STATE_SEND_FILE;
+}
+
+ClientState send_file_handler(void* ctx) {
+    FSMContext* context = (FSMContext*) ctx;
+    SET_TRACE(context, "Entering send_file_handler.", STATE_SEND_FILE);
+
+    if (context->current_file_index < context->num_files) {
+        if (send_file(context->sockfd, context->file_paths[context->current_file_index]) != 0) {
+            SET_ERROR(context, "Failed to send file.", STATE_SEND_FILE, STATE_ERROR);
+            return STATE_ERROR;
+        }
+        context->current_file_index++;
+        return STATE_SEND_FILE;  // repeat for the next file
+    }
+    return STATE_CLEANUP;
+}
+
+ClientState cleanup_handler(void* ctx) {
+    FSMContext* context = (FSMContext*) ctx;
+    SET_TRACE(context, "Entering cleanup_handler.", STATE_CLEANUP);
+
+    if (socket_close(context->sockfd) != 0) {
+        SET_ERROR(context, "Failed to close socket.", STATE_CLEANUP, STATE_ERROR);
+        return STATE_ERROR;
+    }
+    free(context->file_paths);
+    return STATE_EXIT; // Or return STATE_EXIT or similar if you have an exit state
+}
+
+
+FSMState fsm_table[] = {
+        { STATE_PARSE_ARGUMENTS,  parse_arguments_handler, { STATE_HANDLE_ARGUMENTS, STATE_ERROR } },
+        { STATE_HANDLE_ARGUMENTS, handle_arguments_handler, { STATE_CONVERT_ADDRESS, STATE_ERROR } },
+        { STATE_CONVERT_ADDRESS,  convert_address_handler,  { STATE_SOCKET_CREATE, STATE_ERROR } },
+        { STATE_SOCKET_CREATE,    socket_create_handler,    { STATE_SOCKET_CONNECT, STATE_ERROR } },
+        { STATE_SOCKET_CONNECT,   socket_connect_handler,   { STATE_SEND_FILE, STATE_ERROR } },
+        { STATE_SEND_FILE,        send_file_handler,        { STATE_SEND_FILE, STATE_CLEANUP } },
+        { STATE_CLEANUP,          cleanup_handler,          {  STATE_EXIT, STATE_ERROR } },
+        { STATE_EXIT, NULL, { STATE_EXIT, STATE_ERROR } }  // We won't really use this state's handler
+
+};
+
+
+
+int main(int argc, char *argv[]) {
+    FSMContext context = {
+            .argc = argc,
+            .argv = argv,
+            .current_file_index = 0
+    };
+
+    ClientState current_state = STATE_PARSE_ARGUMENTS;
+
+    while (current_state != STATE_EXIT && current_state != STATE_ERROR) {
+        FSMState* current_fsm_state = &fsm_table[current_state];
+        ClientState next_state = current_fsm_state->state_handler(&context);
+
+
+        if (next_state == current_fsm_state->next_states[0]) {
+            current_state = current_fsm_state->next_states[0];
+        } else {
+            current_state = current_fsm_state->next_states[1];
         }
     }
 
-    return EXIT_SUCCESS;
+    if (current_state == STATE_ERROR) {
+        fprintf(stderr, "Error: %s\nOccurred transitioning from state %d to state %d at line %d.\n",
+                context.error_message, context.error_from_state, context.error_to_state, context.error_line);
+    }
+
+    return current_state == STATE_EXIT ? 0 : 1;
 }
+
+
+
+
+
+
+
+
 
 
