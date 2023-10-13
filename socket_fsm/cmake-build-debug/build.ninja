@@ -49,6 +49,12 @@ cmake_ninja_workdir = /Users/samiroudgarian/CLionProjects/fsm/socket_fsm/cmake-b
 
 build cmake_object_order_depends_target_server: phony || CMakeFiles/server.dir
 
+build CMakeFiles/server.dir/src/serverfsm.c.o: C_COMPILER__server_unscanned_Debug /Users/samiroudgarian/CLionProjects/fsm/socket_fsm/src/serverfsm.c || cmake_object_order_depends_target_server
+  DEP_FILE = CMakeFiles/server.dir/src/serverfsm.c.o.d
+  FLAGS = -g -arch arm64 -isysroot /Library/Developer/CommandLineTools/SDKs/MacOSX14.0.sdk -mmacosx-version-min=13.6 -fcolor-diagnostics
+  OBJECT_DIR = CMakeFiles/server.dir
+  OBJECT_FILE_DIR = CMakeFiles/server.dir/src
+
 build CMakeFiles/server.dir/src/server.c.o: C_COMPILER__server_unscanned_Debug /Users/samiroudgarian/CLionProjects/fsm/socket_fsm/src/server.c || cmake_object_order_depends_target_server
   DEP_FILE = CMakeFiles/server.dir/src/server.c.o.d
   FLAGS = -g -arch arm64 -isysroot /Library/Developer/CommandLineTools/SDKs/MacOSX14.0.sdk -mmacosx-version-min=13.6 -fcolor-diagnostics
@@ -63,7 +69,7 @@ build CMakeFiles/server.dir/src/server.c.o: C_COMPILER__server_unscanned_Debug /
 #############################################
 # Link the executable server
 
-build server: C_EXECUTABLE_LINKER__server_Debug CMakeFiles/server.dir/src/server.c.o
+build server: C_EXECUTABLE_LINKER__server_Debug CMakeFiles/server.dir/src/serverfsm.c.o CMakeFiles/server.dir/src/server.c.o
   FLAGS = -g -arch arm64 -isysroot /Library/Developer/CommandLineTools/SDKs/MacOSX14.0.sdk -mmacosx-version-min=13.6
   OBJECT_DIR = CMakeFiles/server.dir
   POST_BUILD = :

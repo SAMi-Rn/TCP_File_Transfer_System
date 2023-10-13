@@ -1,5 +1,5 @@
+#include <glob.h>
 #include "client.h"
-
 
 
 int parse_arguments(int argc, char *argv[], char **address, char **port, char ***file_paths, int *num_files)
@@ -43,12 +43,30 @@ int parse_arguments(int argc, char *argv[], char **address, char **port, char **
 
     *address = argv[optind];
     *port    = argv[optind + 1];
-    *num_files = argc - (optind + 2);
+    int total_files = argc - (optind + 2);
+    int valid_files_count = 0;
+
+    // First pass: Count valid (existing) files
+    for (int i = 0; i < total_files; i++)
+    {
+        if (access(argv[optind + 2 + i], F_OK) == 0) // F_OK tests for the existence of the file
+        {
+            valid_files_count++;
+        }
+    }
+
+    *num_files = valid_files_count;
     *file_paths = (char**) malloc(*num_files * sizeof(char*));
 
-    for (int i = 0; i < *num_files; i++)
+    // Second pass: Store valid file paths
+    int j = 0;
+    for (int i = 0; i < total_files; i++)
     {
-        (*file_paths)[i] = argv[optind + 2 + i];
+        if (access(argv[optind + 2 + i], F_OK) == 0)
+        {
+            (*file_paths)[j] = argv[optind + 2 + i];
+            j++;
+        }
     }
     return 0;
 }
@@ -159,7 +177,7 @@ int socket_connect(int sockfd, struct sockaddr_storage *addr, in_port_t port)
         exit(EXIT_FAILURE);
     }
 
-    printf("Connecting to: %s:%u\n", addr_str, port);
+    printf("\nConnecting to: %s:%u\n", addr_str, port);
     net_port = htons(port);
 
     if(addr->ss_family == AF_INET)
@@ -194,7 +212,7 @@ int socket_connect(int sockfd, struct sockaddr_storage *addr, in_port_t port)
     }
 
 
-    printf("Connected to: %s:%u\n", addr_str, port);
+    printf("Connected to: %s:%u\n\n", addr_str, port);
     return 0;
 }
 
@@ -245,7 +263,7 @@ int send_file(int sockfd, const char *file_path)
 
     write(sockfd, &file_size, sizeof(file_size));
 
-    printf("File name: %s with the File size: %u Bytes is sending.\n", filename, file_size);
+    printf("\nFile name: %s with the File size: %u Bytes is sending.\n\n", filename, file_size);
 
     char buffer[1024];
     uint32_t buffer_size;

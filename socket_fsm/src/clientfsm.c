@@ -167,13 +167,3 @@ int main(int argc, char *argv[]) {
 
     return current_state == STATE_EXIT ? 0 : 1;
 }
-
-
-
-
-
-
-
-
-
-
