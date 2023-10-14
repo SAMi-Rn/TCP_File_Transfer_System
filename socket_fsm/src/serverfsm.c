@@ -1,7 +1,5 @@
+#include <stdbool.h>
 #include "server.h"
-
-
-
 typedef enum {
     STATE_PARSE_ARGUMENTS,
     STATE_HANDLE_ARGUMENTS,
@@ -14,8 +12,9 @@ typedef enum {
     STATE_POLL,
     STATE_HANDLE_NEW_CLIENT,
     STATE_HANDLE_CLIENTS,
-    STATE_ERROR,
+
     STATE_CLEANUP,
+    STATE_ERROR,
     STATE_EXIT // useful to have an explicit exit state
 } ServerState;
 
@@ -142,36 +141,31 @@ ServerState setup_signal_handler_handler(void* ctx) {
 ServerState poll_handler(void* ctx) {
     FSMContext* context = (FSMContext*) ctx;
     SET_TRACE(context, "Entering poll_handler.", STATE_POLL);
-    // Avoid reallocating if possible
-    struct pollfd* temp_fds = realloc(context->fds, (context->max_clients + 1) * sizeof(struct pollfd));
-    if(temp_fds == NULL) {
+
+    context->fds = realloc(context->fds, (context->max_clients + 1) * sizeof(struct pollfd));
+    if(context->fds == NULL) {
         SET_ERROR(context, "Realloc error.", STATE_POLL, STATE_ERROR);
         return STATE_ERROR;
     }
-    context->fds = temp_fds;
 
-    // Ensure setup_fds is working correctly and not causing segmentation faults
-    // Consider checking its return value or doing error handling inside setup_fds
     setup_fds(context->fds, context->client_sockets, context->max_clients, context->sockfd, context->client);
 
     context->num_ready = poll(context->fds, context->max_clients + 1, -1);
-
-    // Handle the poll error
-    if(context->num_ready < 0) {
-        if(errno == EINTR) {
-            printf("\nexit flag: %d\n", exit_flag);
-            if(exit_flag) {
-                return STATE_CLEANUP;
-            }
-            // Handle other cases if needed
-        } else {
-            SET_ERROR(context, "Poll error.", STATE_POLL, STATE_ERROR);
-            return STATE_ERROR;
-        }
+    if(context->num_ready < 0 && errno != EINTR) {
+        SET_ERROR(context, "Poll error.", STATE_POLL, STATE_ERROR);
+        return STATE_ERROR;
     }
+    if(context->num_ready < 0)
+    {
+        if(errno == EINTR)
+        {
+            return STATE_CLEANUP;
+        }
 
-    // Ensure we are not accessing invalid memory
-    if(context->max_clients >= 0 && context->fds[0].revents & POLLIN) {
+        SET_ERROR(context, "Poll error.", STATE_POLL, STATE_ERROR);
+        return STATE_ERROR;
+    }
+    if(context->fds[0].revents & POLLIN) {
         return STATE_HANDLE_NEW_CLIENT;
     } else {
         return STATE_HANDLE_CLIENTS;
@@ -212,7 +206,7 @@ ServerState cleanup_server_handler(void* ctx) {
     }
 
     // If cleanup was successful, we can terminate the program or return to a specific state.
-    exit(EXIT_SUCCESS);  // this will terminate the program
+    return STATE_EXIT; // this will terminate the program
 }
 
 FSMState fsm_table[] = {
@@ -227,9 +221,16 @@ FSMState fsm_table[] = {
         { STATE_POLL,                 poll_handler,                 {STATE_HANDLE_NEW_CLIENT,   STATE_HANDLE_CLIENTS} },
         { STATE_HANDLE_NEW_CLIENT,    handle_new_client_handler,    {STATE_POLL,                STATE_ERROR} },
         { STATE_HANDLE_CLIENTS,       handle_clients_handler,       {STATE_POLL,                STATE_ERROR} },
-        { STATE_CLEANUP,              cleanup_server_handler,       {STATE_EXIT,                STATE_ERROR} },  // changed next state to STATE_EXIT
-        { STATE_EXIT,                 NULL,                         {STATE_EXIT,                STATE_ERROR} }
+        { STATE_CLEANUP,              cleanup_server_handler,       {STATE_EXIT,                STATE_ERROR} },
+        { STATE_ERROR,                NULL,                         {STATE_CLEANUP,             STATE_CLEANUP} },// changed next state to STATE_EXIT
+        { STATE_EXIT,                 NULL,                         {STATE_EXIT,                STATE_EXIT} }
 };
+
+void printFSMTable() {
+    for(int i = 0; i < sizeof(fsm_table) / sizeof(FSMState); i++) {
+        printf("State %d has handler at address %p\n", i, (void*)fsm_table[i].state_handler);
+    }
+}
 
 int main(int argc, char **argv) {
     FSMContext context;
@@ -240,33 +241,40 @@ int main(int argc, char **argv) {
     ServerState current_state = STATE_PARSE_ARGUMENTS;
 
     while(current_state != STATE_EXIT && current_state != STATE_ERROR) {
-        // Find the handler for the current state
-        FSMState* current_fsm_state = &fsm_table[current_state];
-        // Ensure the state has a handler
-        // Ensure the state has a handler
-        if (current_fsm_state->state_handler == NULL) {
-            fprintf(stderr, "Error: No handler for state %d\n", current_state);
-            current_state = STATE_ERROR;
-            continue;
+        // Ensure the current state is within valid bounds
+        if (current_state < 0 || current_state >= sizeof(fsm_table) / sizeof(FSMState)) {
+            fprintf(stderr, "Error: Invalid state detected (%d).\n", current_state);
+            return 1;
         }
 
-        // Execute the state's handler
+        // Get the current FSM state
+        FSMState* current_fsm_state = &fsm_table[current_state];
+
+        // Ensure the state handler is not NULL
+        if (!current_fsm_state->state_handler) {
+            fprintf(stderr, "Error: Handler for state %d is NULL\n", current_state);
+            return 1;
+        }
+
+        // Call the state handler
         ServerState next_state = current_fsm_state->state_handler(&context);
 
-        // If the handler returns a state not defined in the next_states array of the FSM, use it directly
-        if (next_state != current_fsm_state->next_states[0] && next_state != current_fsm_state->next_states[1]) {
+        // If the exit flag is set, move to cleanup state
+        if (exit_flag) {
             current_state = next_state;
+            continue;
+
         }
-            // Otherwise, decide based on the exit_flag
-        else {
-            if (exit_flag) {
-                current_state = STATE_CLEANUP;
-            } else {
-                // Assuming the first state in next_states[] is the "normal" transition and the second is an "error" or "alternative" transition
-                current_state = (next_state == current_fsm_state->next_states[0]) ? current_fsm_state->next_states[0] : current_fsm_state->next_states[1];
-            }
+        if (next_state == current_fsm_state->next_states[0] || next_state == current_fsm_state->next_states[1]) {
+            current_state = next_state;
+        } else {
+            fprintf(stderr, "Error: Unexpected next state %d returned from handler for state %d\n", next_state, current_state);
+            break;
         }
+
     }
+
+    // Handle any errors outside of the loop
     if (current_state == STATE_ERROR) {
         fprintf(stderr, "Error: %s\nOccurred transitioning from state %d to state %d at line %d.\n",
                 context.error_message, context.error_from_state, context.error_to_state, context.error_line);
