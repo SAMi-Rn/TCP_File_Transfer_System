@@ -1,5 +1,6 @@
 #include "server.h"
 volatile int exit_flag = 0;
+
 int parse_arguments(int argc, char *argv[], char **ip_address, char **port, char **directory)
 {
     int opt;
@@ -314,16 +315,13 @@ int receive_files(int sd, int **client_sockets, const nfds_t *max_clients, const
 
     while (bytes_read < file_size)
     {
-        // Inlined receive_buffer_size
         uint32_t buffer_size;
-        uint32_t result = read(sd, &buffer_size, sizeof(buffer_size));
-        if (result == -1)
+        if (read_buffer_size(sd, sizeof(buffer_size), (void *) &buffer_size))
         {
-            fprintf(stderr, "recv: %s (%d)\n", strerror(errno), errno);
+            fprintf(stderr, "read buffer size: %s (%d)\n", strerror(errno), errno);
             return -1;
         }
 
-        // Inlined safe_malloc
         char *buffer = malloc(buffer_size);
         if (!buffer && buffer_size > 0)
         {
@@ -334,7 +332,6 @@ int receive_files(int sd, int **client_sockets, const nfds_t *max_clients, const
 
         memset(buffer, 0, buffer_size);
 
-        // Inlined receive_buffer
         uint32_t bytes_received_for_current_buffer = 0;
         while (bytes_received_for_current_buffer < buffer_size)
         {
@@ -359,7 +356,27 @@ int receive_files(int sd, int **client_sockets, const nfds_t *max_clients, const
     return 0;
 }
 
+int read_buffer_size(int sockfd, uint32_t size, void *buffer)
+{
+    uint32_t bytes_read;
+    uint32_t result;
 
+    bytes_read = 0;
+    while (bytes_read < size)
+    {
+        result = read(sockfd, buffer + bytes_read, size - bytes_read);
+
+        if (result <= 0)
+        {
+            fprintf(stderr, "read size: %s (%d)\n", strerror(errno), errno);
+            return -1;
+        }
+
+        bytes_read += result;
+    }
+
+    return 0;
+}
 
 int handle_disconnection(int sd, int **client_sockets, const nfds_t *max_clients, int client) {
     printf("Client %d disconnected\n", client);

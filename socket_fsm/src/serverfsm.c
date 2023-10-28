@@ -12,11 +12,30 @@ typedef enum {
     STATE_POLL,
     STATE_HANDLE_NEW_CLIENT,
     STATE_HANDLE_CLIENTS,
-
     STATE_CLEANUP,
     STATE_ERROR,
     STATE_EXIT // useful to have an explicit exit state
 } ServerState;
+const char* state_to_string(ServerState state) {
+    switch(state) {
+        case STATE_PARSE_ARGUMENTS:      return "STATE_PARSE_ARGUMENTS";
+        case STATE_HANDLE_ARGUMENTS:     return "STATE_HANDLE_ARGUMENTS";
+        case STATE_CONVERT_ADDRESS:      return "STATE_CONVERT_ADDRESS";
+        case STATE_SOCKET_CREATE:        return "STATE_SOCKET_CREATE";
+        case STATE_SETUP_SERVER_SOCKET:  return "STATE_SETUP_SERVER_SOCKET";
+        case STATE_SOCKET_BIND:          return "STATE_SOCKET_BIND";
+        case STATE_START_LISTENING:      return "STATE_START_LISTENING";
+        case STATE_SETUP_SIGNAL_HANDLER: return "STATE_SETUP_SIGNAL_HANDLER";
+        case STATE_POLL:                 return "STATE_POLL";
+        case STATE_HANDLE_NEW_CLIENT:    return "STATE_HANDLE_NEW_CLIENT";
+        case STATE_HANDLE_CLIENTS:       return "STATE_HANDLE_CLIENTS";
+        case STATE_CLEANUP:              return "STATE_CLEANUP";
+        case STATE_ERROR:                return "STATE_ERROR";
+        case STATE_EXIT:                 return "STATE_EXIT";
+        default:                         return "UNKNOWN_STATE";
+    }
+}
+
 
 typedef struct {
     ServerState state;
@@ -226,11 +245,6 @@ FSMState fsm_table[] = {
         { STATE_EXIT,                 NULL,                         {STATE_EXIT,                STATE_EXIT} }
 };
 
-void printFSMTable() {
-    for(int i = 0; i < sizeof(fsm_table) / sizeof(FSMState); i++) {
-        printf("State %d has handler at address %p\n", i, (void*)fsm_table[i].state_handler);
-    }
-}
 
 int main(int argc, char **argv) {
     FSMContext context;

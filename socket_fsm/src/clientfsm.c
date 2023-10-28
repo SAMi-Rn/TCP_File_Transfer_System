@@ -11,7 +11,20 @@ typedef enum {
     STATE_EXIT,
     STATE_ERROR
 } ClientState;
-
+const char* state_to_string(ClientState state) {
+    switch(state) {
+        case STATE_PARSE_ARGUMENTS:      return "STATE_PARSE_ARGUMENTS";
+        case STATE_HANDLE_ARGUMENTS:     return "STATE_HANDLE_ARGUMENTS";
+        case STATE_CONVERT_ADDRESS:      return "STATE_CONVERT_ADDRESS";
+        case STATE_SOCKET_CREATE:        return "STATE_SOCKET_CREATE";
+        case STATE_SOCKET_CONNECT:       return "STATE_SOCKET_CONNECT";
+        case STATE_SEND_FILE:            return "STATE_SEND_FILE";
+        case STATE_CLEANUP:              return "STATE_CLEANUP";
+        case STATE_EXIT:                 return "STATE_EXIT";
+        case STATE_ERROR:                return "STATE_ERROR";
+        default:                         return "UNKNOWN_STATE";
+    }
+}
 typedef struct {
     ClientState state;
     ClientState (*state_handler)(void* context);
@@ -159,6 +172,8 @@ int main(int argc, char *argv[]) {
             current_state = current_fsm_state->next_states[1];
         }
     }
+
+
 
     if (current_state == STATE_ERROR) {
         fprintf(stderr, "Error: %s\nOccurred transitioning from state %d to state %d at line %d.\n",

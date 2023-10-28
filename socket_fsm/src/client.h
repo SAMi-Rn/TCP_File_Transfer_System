@@ -52,7 +52,7 @@ int send_file(int sockfd, const char *file_path);
         ctx->trace_message = msg; \
         ctx->trace_state = curr_state; \
         ctx->trace_line = __LINE__; \
-        printf("TRACE: %s Entered state %d at line %d.\n", \
-               ctx->trace_message, ctx->trace_state, ctx->trace_line); \
+        printf("TRACE: %s \nEntered state %s (%d) at line %d.\n\n", \
+               ctx->trace_message, state_to_string(ctx->trace_state),ctx->trace_state, ctx->trace_line); \
     } while (0)
 #endif //SOCKET_FSM_CLIENT_H

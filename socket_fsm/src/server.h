@@ -33,6 +33,7 @@ int handle_new_client(int server_socket, int **client_sockets, nfds_t *max_clien
 int socket_close(int sockfd);
 int handle_disconnection(int sd, int **client_sockets, const nfds_t *max_clients, int client);
 int receive_files(int sd, int **client_sockets, const nfds_t *max_clients, const char *dir, int *client);
+int read_buffer_size(int sockfd, uint32_t size, void *buffer);
 int setup_server_socket(int sockfd, struct sockaddr_storage *addr, in_port_t port);
 void setup_fds(struct pollfd *fds, int *client_sockets, nfds_t max_clients, int sockfd, int *client);
 int handle_clients(struct pollfd *fds, nfds_t max_clients, int *client_sockets, char *directory, int *client);
@@ -53,9 +54,10 @@ int cleanup_server(int *client_sockets, nfds_t max_clients, struct pollfd *fds, 
         ctx->trace_message = msg; \
         ctx->trace_state = curr_state; \
         ctx->trace_line = __LINE__; \
-        printf("TRACE: %s Entered state %d at line %d.\n", \
-               ctx->trace_message, ctx->trace_state, ctx->trace_line); \
+        printf("TRACE: %s \nEntered state %s (%d) at line %d.\n\n", \
+               ctx->trace_message, state_to_string(ctx->trace_state),ctx->trace_state, ctx->trace_line); \
     } while (0)
+
 
 
 extern volatile int exit_flag;
