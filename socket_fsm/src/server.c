@@ -394,10 +394,9 @@ int handle_disconnection(int sd, int **client_sockets, const nfds_t *max_clients
     return -1;
 }
 
-int setup_server_socket(int sockfd, struct sockaddr_storage *addr, in_port_t port) {
+int setup_server_socket(int sockfd) {
     int enable = 1;
     if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(int)) == -1) {
-        perror("Setsockopt failed");
         return -1;
     }
     return 0;

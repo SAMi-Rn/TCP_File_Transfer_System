@@ -10,8 +10,8 @@ typedef enum {
     STATE_CLEANUP,
     STATE_EXIT,
     STATE_ERROR
-} ClientState;
-const char* state_to_string(ClientState state) {
+} client_state;
+const char* state_to_string(client_state state) {
     switch(state) {
         case STATE_PARSE_ARGUMENTS:      return "STATE_PARSE_ARGUMENTS";
         case STATE_HANDLE_ARGUMENTS:     return "STATE_HANDLE_ARGUMENTS";
@@ -26,12 +26,12 @@ const char* state_to_string(ClientState state) {
     }
 }
 typedef struct {
-    ClientState state;
-    ClientState (*state_handler)(void* context);
-    ClientState next_states[2];  // 0 for success, 1 for failure
+    client_state state;
+    client_state (*state_handler)(void* context);
+    client_state next_states[2];  // 0 for success, 1 for failure
 } FSMState;
 
-typedef ClientState (*StateHandlerFunc)(void* context);
+typedef client_state (*StateHandlerFunc)(void* context);
 
 typedef struct {
     int argc;
@@ -45,16 +45,16 @@ typedef struct {
     int num_files;
     int current_file_index;
     char *trace_message;
-    ClientState trace_state;
+    client_state trace_state;
     int trace_line;
     char *error_message;
-    ClientState error_from_state;
-    ClientState error_to_state;
+    client_state error_from_state;
+    client_state error_to_state;
     int error_line;
 } FSMContext;
 
 
-ClientState parse_arguments_handler(void* ctx) {
+client_state parse_arguments_handler(void* ctx) {
     FSMContext* context = (FSMContext*) ctx;
     SET_TRACE(context, "Entering parse_arguments_handler .", STATE_PARSE_ARGUMENTS);
 
@@ -64,7 +64,7 @@ ClientState parse_arguments_handler(void* ctx) {
     }
     return STATE_HANDLE_ARGUMENTS;
 }
-ClientState handle_arguments_handler(void* ctx) {
+client_state handle_arguments_handler(void* ctx) {
     FSMContext* context = (FSMContext*) ctx;
     SET_TRACE(context, "Entering handle_arguments_handler.", STATE_HANDLE_ARGUMENTS);
 
@@ -75,7 +75,7 @@ ClientState handle_arguments_handler(void* ctx) {
     return STATE_CONVERT_ADDRESS;
 }
 
-ClientState convert_address_handler(void* ctx) {
+client_state convert_address_handler(void* ctx) {
     FSMContext* context = (FSMContext*) ctx;
     SET_TRACE(context, "Entering convert_address_handler.", STATE_CONVERT_ADDRESS);
 
@@ -87,7 +87,7 @@ ClientState convert_address_handler(void* ctx) {
 }
 
 
-ClientState socket_create_handler(void* ctx) {
+client_state socket_create_handler(void* ctx) {
     FSMContext* context = (FSMContext*) ctx;
     SET_TRACE(context, "Entering socket_create_handler.", STATE_SOCKET_CREATE);
 
@@ -99,7 +99,7 @@ ClientState socket_create_handler(void* ctx) {
     return STATE_SOCKET_CONNECT;
 }
 
-ClientState socket_connect_handler(void* ctx) {
+client_state socket_connect_handler(void* ctx) {
     FSMContext* context = (FSMContext*) ctx;
     SET_TRACE(context, "Entering socket_connect_handler.", STATE_SOCKET_CONNECT);
 
@@ -110,7 +110,7 @@ ClientState socket_connect_handler(void* ctx) {
     return STATE_SEND_FILE;
 }
 
-ClientState send_file_handler(void* ctx) {
+client_state send_file_handler(void* ctx) {
     FSMContext* context = (FSMContext*) ctx;
     SET_TRACE(context, "Entering send_file_handler.", STATE_SEND_FILE);
 
@@ -125,7 +125,7 @@ ClientState send_file_handler(void* ctx) {
     return STATE_CLEANUP;
 }
 
-ClientState cleanup_handler(void* ctx) {
+client_state cleanup_handler(void* ctx) {
     FSMContext* context = (FSMContext*) ctx;
     SET_TRACE(context, "Entering cleanup_handler.", STATE_CLEANUP);
 
@@ -159,11 +159,11 @@ int main(int argc, char *argv[]) {
             .current_file_index = 0
     };
 
-    ClientState current_state = STATE_PARSE_ARGUMENTS;
+    client_state current_state = STATE_PARSE_ARGUMENTS;
 
     while (current_state != STATE_EXIT && current_state != STATE_ERROR) {
         FSMState* current_fsm_state = &fsm_table[current_state];
-        ClientState next_state = current_fsm_state->state_handler(&context);
+        client_state next_state = current_fsm_state->state_handler(&context);
 
 
         if (next_state == current_fsm_state->next_states[0]) {

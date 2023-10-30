@@ -15,8 +15,8 @@ typedef enum {
     STATE_CLEANUP,
     STATE_ERROR,
     STATE_EXIT // useful to have an explicit exit state
-} ServerState;
-const char* state_to_string(ServerState state) {
+} server_state;
+const char* state_to_string(server_state state) {
     switch(state) {
         case STATE_PARSE_ARGUMENTS:      return "STATE_PARSE_ARGUMENTS";
         case STATE_HANDLE_ARGUMENTS:     return "STATE_HANDLE_ARGUMENTS";
@@ -38,12 +38,12 @@ const char* state_to_string(ServerState state) {
 
 
 typedef struct {
-    ServerState state;
-    ServerState (*state_handler)(void* context);
-    ServerState next_states[2];  // 0 for success, 1 for failure
+    server_state state;
+    server_state (*state_handler)(void* context);
+    server_state next_states[2];  // 0 for success, 1 for failure
 } FSMState;
 
-typedef ServerState (*StateHandlerFunc)(void* context);
+typedef server_state (*StateHandlerFunc)(void* context);
 typedef struct {
     int argc;
     char **argv;
@@ -60,15 +60,15 @@ typedef struct {
     struct pollfd *fds;
     int  client[1024];
     char *trace_message;
-    ServerState trace_state;
+    server_state trace_state;
     int trace_line;
     char *error_message;
-    ServerState error_from_state;
-    ServerState error_to_state;
+    server_state error_from_state;
+    server_state error_to_state;
     int error_line;
 } FSMContext;
 
-ServerState parse_arguments_handler(void* ctx) {
+server_state parse_arguments_handler(void* ctx) {
     FSMContext* context = (FSMContext*) ctx;
     SET_TRACE(context, "Entering parse_arguments_handler.", STATE_PARSE_ARGUMENTS);
 
@@ -79,7 +79,7 @@ ServerState parse_arguments_handler(void* ctx) {
     return STATE_HANDLE_ARGUMENTS;
 }
 
-ServerState handle_arguments_handler(void* ctx) {
+server_state handle_arguments_handler(void* ctx) {
     FSMContext* context = (FSMContext*) ctx;
     SET_TRACE(context, "Entering handle_arguments_handler.", STATE_HANDLE_ARGUMENTS);
 
@@ -90,7 +90,7 @@ ServerState handle_arguments_handler(void* ctx) {
     return STATE_CONVERT_ADDRESS;
 }
 
-ServerState convert_address_handler(void* ctx) {
+server_state convert_address_handler(void* ctx) {
     FSMContext* context = (FSMContext*) ctx;
     SET_TRACE(context, "Entering convert_address_handler.", STATE_CONVERT_ADDRESS);
 
@@ -101,7 +101,7 @@ ServerState convert_address_handler(void* ctx) {
     return STATE_SOCKET_CREATE;
 }
 
-ServerState socket_create_handler(void* ctx) {
+server_state socket_create_handler(void* ctx) {
     FSMContext* context = (FSMContext*) ctx;
     SET_TRACE(context, "Entering socket_create_handler.", STATE_SOCKET_CREATE);
 
@@ -113,18 +113,18 @@ ServerState socket_create_handler(void* ctx) {
     return STATE_SETUP_SERVER_SOCKET;
 }
 
-ServerState setup_server_socket_handler(void* ctx) {
+server_state setup_server_socket_handler(void* ctx) {
     FSMContext* context = (FSMContext*) ctx;
     SET_TRACE(context, "Entering setup_server_socket_handler.", STATE_SETUP_SERVER_SOCKET);
 
-    if (setup_server_socket(context->sockfd, &context->addr, context->port) != 0) {
+    if (setup_server_socket(context->sockfd) != 0) {
         SET_ERROR(context, "Failed to set up the server socket.", STATE_SETUP_SERVER_SOCKET, STATE_ERROR);
         return STATE_ERROR;
     }
     return STATE_SOCKET_BIND;
 }
 
-ServerState socket_bind_handler(void* ctx) {
+server_state socket_bind_handler(void* ctx) {
     FSMContext* context = (FSMContext*) ctx;
     SET_TRACE(context, "Entering socket_bind_handler.", STATE_SOCKET_BIND);
 
@@ -135,7 +135,7 @@ ServerState socket_bind_handler(void* ctx) {
     return STATE_START_LISTENING;
 }
 
-ServerState start_listening_handler(void* ctx) {
+server_state start_listening_handler(void* ctx) {
     FSMContext* context = (FSMContext*) ctx;
     SET_TRACE(context, "Entering start_listening_handler.", STATE_START_LISTENING);
 
@@ -146,7 +146,7 @@ ServerState start_listening_handler(void* ctx) {
     return STATE_SETUP_SIGNAL_HANDLER;
 }
 
-ServerState setup_signal_handler_handler(void* ctx) {
+server_state setup_signal_handler_handler(void* ctx) {
     FSMContext* context = (FSMContext*) ctx;
     SET_TRACE(context, "Entering setup_signal_handler_handler.", STATE_SETUP_SIGNAL_HANDLER);
 
@@ -157,7 +157,7 @@ ServerState setup_signal_handler_handler(void* ctx) {
     return STATE_POLL;
 }
 
-ServerState poll_handler(void* ctx) {
+server_state poll_handler(void* ctx) {
     FSMContext* context = (FSMContext*) ctx;
     SET_TRACE(context, "Entering poll_handler.", STATE_POLL);
 
@@ -193,7 +193,7 @@ ServerState poll_handler(void* ctx) {
 
 
 
-ServerState handle_new_client_handler(void* ctx) {
+server_state handle_new_client_handler(void* ctx) {
     FSMContext* context = (FSMContext*) ctx;
     SET_TRACE(context, "Entering handle_new_client_handler.", STATE_HANDLE_NEW_CLIENT);
     if (handle_new_client(context->sockfd, &context->client_sockets, &context->max_clients) != 0) {
@@ -203,7 +203,7 @@ ServerState handle_new_client_handler(void* ctx) {
     return STATE_POLL;
 }
 
-ServerState handle_clients_handler(void* ctx) {
+server_state handle_clients_handler(void* ctx) {
     FSMContext* context = (FSMContext*) ctx;
     SET_TRACE(context, "Entering handle_clients_handler.", STATE_HANDLE_CLIENTS);
     if (handle_clients(context->fds, context->max_clients, context->client_sockets, context->directory, context->client) != 0) {
@@ -213,7 +213,7 @@ ServerState handle_clients_handler(void* ctx) {
     return STATE_POLL;
 }
 
-ServerState cleanup_server_handler(void* ctx) {
+server_state cleanup_server_handler(void* ctx) {
     FSMContext* context = (FSMContext*) ctx;
     SET_TRACE(context, "Entering cleanup_server_handler.", STATE_CLEANUP);
 
@@ -252,7 +252,7 @@ int main(int argc, char **argv) {
     context.argc = argc;
     context.argv = argv;
 
-    ServerState current_state = STATE_PARSE_ARGUMENTS;
+    server_state current_state = STATE_PARSE_ARGUMENTS;
 
     while(current_state != STATE_EXIT && current_state != STATE_ERROR) {
         // Ensure the current state is within valid bounds
@@ -271,7 +271,7 @@ int main(int argc, char **argv) {
         }
 
         // Call the state handler
-        ServerState next_state = current_fsm_state->state_handler(&context);
+        server_state next_state = current_fsm_state->state_handler(&context);
 
         // If the exit flag is set, move to cleanup state
         if (exit_flag) {

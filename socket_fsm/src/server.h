@@ -34,7 +34,7 @@ int socket_close(int sockfd);
 int handle_disconnection(int sd, int **client_sockets, const nfds_t *max_clients, int client);
 int receive_files(int sd, int **client_sockets, const nfds_t *max_clients, const char *dir, int *client);
 int read_buffer_size(int sockfd, uint32_t size, void *buffer);
-int setup_server_socket(int sockfd, struct sockaddr_storage *addr, in_port_t port);
+int setup_server_socket(int sockfd);
 void setup_fds(struct pollfd *fds, int *client_sockets, nfds_t max_clients, int sockfd, int *client);
 int handle_clients(struct pollfd *fds, nfds_t max_clients, int *client_sockets, char *directory, int *client);
 int cleanup_server(int *client_sockets, nfds_t max_clients, struct pollfd *fds, int sockfd);
