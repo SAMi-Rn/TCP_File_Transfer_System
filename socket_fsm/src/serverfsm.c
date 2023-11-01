@@ -1,21 +1,4 @@
-#include <stdbool.h>
 #include "server.h"
-typedef enum {
-    STATE_PARSE_ARGUMENTS,
-    STATE_HANDLE_ARGUMENTS,
-    STATE_CONVERT_ADDRESS,
-    STATE_SOCKET_CREATE,
-    STATE_SETUP_SERVER_SOCKET,
-    STATE_SOCKET_BIND,
-    STATE_START_LISTENING,
-    STATE_SETUP_SIGNAL_HANDLER,
-    STATE_POLL,
-    STATE_HANDLE_NEW_CLIENT,
-    STATE_HANDLE_CLIENTS,
-    STATE_CLEANUP,
-    STATE_ERROR,
-    STATE_EXIT // useful to have an explicit exit state
-} server_state;
 const char* state_to_string(server_state state) {
     switch(state) {
         case STATE_PARSE_ARGUMENTS:      return "STATE_PARSE_ARGUMENTS";
@@ -36,44 +19,12 @@ const char* state_to_string(server_state state) {
     }
 }
 
-
-typedef struct {
-    server_state state;
-    server_state (*state_handler)(void* context);
-    server_state next_states[2];  // 0 for success, 1 for failure
-} FSMState;
-
-typedef server_state (*StateHandlerFunc)(void* context);
-typedef struct {
-    int argc;
-    char **argv;
-    char                    *address;
-    char                    *port_str;
-    char                    *directory;
-    in_port_t               port;
-    int                     *client_sockets;
-    nfds_t                  max_clients;
-    int                     num_ready;
-    int                     sockfd;
-    int                     enable;
-    struct sockaddr_storage addr;
-    struct pollfd *fds;
-    int  client[1024];
-    char *trace_message;
-    server_state trace_state;
-    int trace_line;
-    char *error_message;
-    server_state error_from_state;
-    server_state error_to_state;
-    int error_line;
-} FSMContext;
-
 server_state parse_arguments_handler(void* ctx) {
     FSMContext* context = (FSMContext*) ctx;
     SET_TRACE(context, "Entering parse_arguments_handler.", STATE_PARSE_ARGUMENTS);
 
-    if (parse_arguments(context->argc, context->argv, &context->address, &context->port_str, &context->directory) != 0) {
-        SET_ERROR(context, "Failed to parse arguments.", STATE_PARSE_ARGUMENTS, STATE_ERROR);
+    if (parse_arguments(context->argc, context->argv, &context->address, &context->port_str, &context->directory, ctx) != 0) {
+
         return STATE_ERROR;
     }
     return STATE_HANDLE_ARGUMENTS;
@@ -83,8 +34,7 @@ server_state handle_arguments_handler(void* ctx) {
     FSMContext* context = (FSMContext*) ctx;
     SET_TRACE(context, "Entering handle_arguments_handler.", STATE_HANDLE_ARGUMENTS);
 
-    if (handle_arguments(context->argv[0], context->address, context->port_str, &context->port) !=0) {
-        SET_ERROR(context, "Failed to handle arguments.", STATE_HANDLE_ARGUMENTS, STATE_ERROR);
+    if (handle_arguments(context->argv[0], context->address, context->port_str, &context->port, ctx) !=0) {
         return STATE_ERROR;
     }
     return STATE_CONVERT_ADDRESS;
@@ -94,8 +44,7 @@ server_state convert_address_handler(void* ctx) {
     FSMContext* context = (FSMContext*) ctx;
     SET_TRACE(context, "Entering convert_address_handler.", STATE_CONVERT_ADDRESS);
 
-    if (convert_address(context->address, &context->addr) != 0) {
-        SET_ERROR(context, "Failed to convert address.", STATE_CONVERT_ADDRESS, STATE_ERROR);
+    if (convert_address(context->address, &context->addr, ctx) != 0) {
         return STATE_ERROR;
     }
     return STATE_SOCKET_CREATE;
@@ -105,9 +54,8 @@ server_state socket_create_handler(void* ctx) {
     FSMContext* context = (FSMContext*) ctx;
     SET_TRACE(context, "Entering socket_create_handler.", STATE_SOCKET_CREATE);
 
-    context->sockfd = socket_create(context->addr.ss_family, SOCK_STREAM, 0);
+    context->sockfd = socket_create(context->addr.ss_family, SOCK_STREAM, 0, ctx);
     if (context->sockfd == -1) {
-        SET_ERROR(context, "Failed to create socket.", STATE_SOCKET_CREATE, STATE_ERROR);
         return STATE_ERROR;
     }
     return STATE_SETUP_SERVER_SOCKET;
@@ -117,8 +65,7 @@ server_state setup_server_socket_handler(void* ctx) {
     FSMContext* context = (FSMContext*) ctx;
     SET_TRACE(context, "Entering setup_server_socket_handler.", STATE_SETUP_SERVER_SOCKET);
 
-    if (setup_server_socket(context->sockfd) != 0) {
-        SET_ERROR(context, "Failed to set up the server socket.", STATE_SETUP_SERVER_SOCKET, STATE_ERROR);
+    if (setup_server_socket(context->sockfd, ctx) != 0) {
         return STATE_ERROR;
     }
     return STATE_SOCKET_BIND;
@@ -128,8 +75,7 @@ server_state socket_bind_handler(void* ctx) {
     FSMContext* context = (FSMContext*) ctx;
     SET_TRACE(context, "Entering socket_bind_handler.", STATE_SOCKET_BIND);
 
-    if (socket_bind(context->sockfd, &context->addr, context->port) != 0) {
-        SET_ERROR(context, "Failed to bind socket.", STATE_SOCKET_BIND, STATE_ERROR);
+    if (socket_bind(context->sockfd, &context->addr, context->port,  ctx) != 0) {
         return STATE_ERROR;
     }
     return STATE_START_LISTENING;
@@ -139,8 +85,7 @@ server_state start_listening_handler(void* ctx) {
     FSMContext* context = (FSMContext*) ctx;
     SET_TRACE(context, "Entering start_listening_handler.", STATE_START_LISTENING);
 
-    if (start_listening(context->sockfd, SOMAXCONN) != 0) {
-        SET_ERROR(context, "Failed to start listening on the socket.", STATE_START_LISTENING, STATE_ERROR);
+    if (start_listening(context->sockfd, SOMAXCONN,  ctx) != 0) {
         return STATE_ERROR;
     }
     return STATE_SETUP_SIGNAL_HANDLER;
@@ -150,8 +95,7 @@ server_state setup_signal_handler_handler(void* ctx) {
     FSMContext* context = (FSMContext*) ctx;
     SET_TRACE(context, "Entering setup_signal_handler_handler.", STATE_SETUP_SIGNAL_HANDLER);
 
-    if (setup_signal_handler() != 0) {
-        SET_ERROR(context, "Failed to set up signal handler.", STATE_SETUP_SIGNAL_HANDLER, STATE_ERROR);
+    if (setup_signal_handler( ctx) != 0) {
         return STATE_ERROR;
     }
     return STATE_POLL;
@@ -163,7 +107,6 @@ server_state poll_handler(void* ctx) {
 
     context->fds = realloc(context->fds, (context->max_clients + 1) * sizeof(struct pollfd));
     if(context->fds == NULL) {
-        SET_ERROR(context, "Realloc error.", STATE_POLL, STATE_ERROR);
         return STATE_ERROR;
     }
 
@@ -171,7 +114,7 @@ server_state poll_handler(void* ctx) {
 
     context->num_ready = poll(context->fds, context->max_clients + 1, -1);
     if(context->num_ready < 0 && errno != EINTR) {
-        SET_ERROR(context, "Poll error.", STATE_POLL, STATE_ERROR);
+        SET_ERROR(context, "Poll error.");
         return STATE_ERROR;
     }
     if(context->num_ready < 0)
@@ -181,7 +124,7 @@ server_state poll_handler(void* ctx) {
             return STATE_CLEANUP;
         }
 
-        SET_ERROR(context, "Poll error.", STATE_POLL, STATE_ERROR);
+        SET_ERROR(context, "Poll error.");
         return STATE_ERROR;
     }
     if(context->fds[0].revents & POLLIN) {
@@ -196,8 +139,7 @@ server_state poll_handler(void* ctx) {
 server_state handle_new_client_handler(void* ctx) {
     FSMContext* context = (FSMContext*) ctx;
     SET_TRACE(context, "Entering handle_new_client_handler.", STATE_HANDLE_NEW_CLIENT);
-    if (handle_new_client(context->sockfd, &context->client_sockets, &context->max_clients) != 0) {
-        SET_ERROR(context, "Failed to handle new client.", STATE_HANDLE_NEW_CLIENT, STATE_ERROR);
+    if (handle_new_client(context->sockfd, &context->client_sockets, &context->max_clients,  ctx) != 0) {
         return STATE_ERROR;
     }
     return STATE_POLL;
@@ -206,8 +148,7 @@ server_state handle_new_client_handler(void* ctx) {
 server_state handle_clients_handler(void* ctx) {
     FSMContext* context = (FSMContext*) ctx;
     SET_TRACE(context, "Entering handle_clients_handler.", STATE_HANDLE_CLIENTS);
-    if (handle_clients(context->fds, context->max_clients, context->client_sockets, context->directory, context->client) != 0) {
-        SET_ERROR(context, "Failed to handle clients.", STATE_HANDLE_CLIENTS, STATE_ERROR);
+    if (handle_clients(context->fds, context->max_clients, context->client_sockets, context->directory, context->client,  ctx) != 0) {
         return STATE_ERROR;
     }
     return STATE_POLL;
@@ -217,10 +158,9 @@ server_state cleanup_server_handler(void* ctx) {
     FSMContext* context = (FSMContext*) ctx;
     SET_TRACE(context, "Entering cleanup_server_handler.", STATE_CLEANUP);
 
-    int result = cleanup_server(context->client_sockets, context->max_clients, context->fds, context->sockfd);
+    int result = cleanup_server(context->client_sockets, context->max_clients, context->fds, context->sockfd,  ctx);
 
     if(result < 0) {
-        SET_ERROR(context, "Failed during cleanup.", STATE_CLEANUP, STATE_ERROR);
         return STATE_ERROR;
     }
 
@@ -241,7 +181,7 @@ FSMState fsm_table[] = {
         { STATE_HANDLE_NEW_CLIENT,    handle_new_client_handler,    {STATE_POLL,                STATE_ERROR} },
         { STATE_HANDLE_CLIENTS,       handle_clients_handler,       {STATE_POLL,                STATE_ERROR} },
         { STATE_CLEANUP,              cleanup_server_handler,       {STATE_EXIT,                STATE_ERROR} },
-        { STATE_ERROR,                NULL,                         {STATE_CLEANUP,             STATE_CLEANUP} },// changed next state to STATE_EXIT
+        { STATE_ERROR,                NULL,                         {STATE_CLEANUP,             STATE_CLEANUP} },
         { STATE_EXIT,                 NULL,                         {STATE_EXIT,                STATE_EXIT} }
 };
 
@@ -290,9 +230,10 @@ int main(int argc, char **argv) {
 
     // Handle any errors outside of the loop
     if (current_state == STATE_ERROR) {
-        fprintf(stderr, "Error: %s\nOccurred transitioning from state %d to state %d at line %d.\n",
-                context.error_message, context.error_from_state, context.error_to_state, context.error_line);
+        fprintf(stderr, "ERROR: %s\nIn the function: %s \nInside the file: %s\nOn the line: %d\n",
+                context.error_message, context.function_name, context.file_name, context.error_line);
+
     }
 
-    return current_state == STATE_EXIT ? 0 : 1;
+    return current_state == STATE_EXIT ? EXIT_SUCCESS : EXIT_FAILURE;
 }

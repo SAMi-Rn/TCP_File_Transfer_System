@@ -23,28 +23,73 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
+#include <glob.h>
 
-int parse_arguments(int argc, char *argv[], char **address, char **port, char ***file_paths, int *num_files);
-int handle_arguments(const char *binary_name, const char *address, const char *port_str, in_port_t *port);
-int parse_in_port_t(const char *binary_name, const char *str, in_port_t *parsed_value);
-_Noreturn static void usage(const char *program_name, int exit_code, const char *message);
-int convert_address(const char *address, struct sockaddr_storage *addr);
-int socket_create(int domain, int type, int protocol);
-int socket_connect(int sockfd, struct sockaddr_storage *addr, in_port_t port);
-int socket_close(int sockfd);
-int send_file(int sockfd, const char *file_path);
+int parse_arguments(int argc, char *argv[], char **address, char **port, char ***file_paths, int *num_files, void* ctx);
+int handle_arguments(const char *binary_name, const char *address, const char *port_str, in_port_t *port, void* ctx);
+int parse_in_port_t(const char *binary_name, const char *str, in_port_t *parsed_value, void* ctx);
+void usage(const char *program_name,const char *message);
+int convert_address(const char *address, struct sockaddr_storage *addr, void* ctx);
+int socket_create(int domain, int type, int protocol, void* ctx);
+int socket_connect(int sockfd, struct sockaddr_storage *addr, in_port_t port, void* ctx);
+int socket_close(int sockfd, void* ctx);
+int send_file(int sockfd, const char *file_path, void* ctx);
 
 
 #define UNKNOWN_OPTION_MESSAGE_LEN 24
 #define BASE_TEN 10
+typedef enum {
+    STATE_PARSE_ARGUMENTS,
+    STATE_HANDLE_ARGUMENTS,
+    STATE_CONVERT_ADDRESS,
+    STATE_SOCKET_CREATE,
+    STATE_SOCKET_CONNECT,
+    STATE_SEND_FILE,
+    STATE_CLEANUP,
+    STATE_EXIT,
+    STATE_ERROR
+} client_state;
+
+typedef struct {
+    client_state state;
+    client_state (*state_handler)(void* context);
+    client_state next_states[2];  // 0 for success, 1 for failure
+} FSMState;
+
+typedef client_state (*StateHandlerFunc)(void* context);
+
+#define BASE_FILENAME(file) ({ \
+    const char *slash = strrchr(file, '/'); \
+    slash ? slash + 1 : file; \
+})
+
+typedef struct {
+    int argc;
+    char **argv;
+    char *address;
+    char *port_str;
+    in_port_t port;
+    struct sockaddr_storage addr;
+    int sockfd;
+    char **file_paths;
+    int num_files;
+    int current_file_index;
+    char *trace_message;
+    client_state trace_state;
+    int trace_line;
+    char    *error_message;
+    const char    *function_name;
+    const char    *file_name;
+    int     error_line;
+} FSMContext;
 
 // Helper macros
-#define SET_ERROR(ctx, msg, from_state, to_state) \
+#define SET_ERROR(ctx, msg) \
     do { \
-        ctx->error_message = msg; \
-        ctx->error_from_state = from_state; \
-        ctx->error_to_state = to_state; \
-        ctx->error_line = __LINE__; \
+        ctx -> error_message = msg; \
+        ctx -> function_name = __func__; \
+        ctx -> file_name = BASE_FILENAME(__FILE__);  \
+        ctx -> error_line = __LINE__; \
     } while (0)
 
 #define SET_TRACE(ctx, msg, curr_state) \
