@@ -45,9 +45,9 @@ typedef enum {
     STATE_SOCKET_CREATE,
     STATE_SOCKET_CONNECT,
     STATE_SEND_FILE,
+    STATE_ERROR,
     STATE_CLEANUP,
-    STATE_EXIT,
-    STATE_ERROR
+    STATE_EXIT
 } client_state;
 
 typedef struct {

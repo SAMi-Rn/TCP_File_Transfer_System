@@ -168,6 +168,16 @@ server_state cleanup_server_handler(void* ctx) {
     return STATE_EXIT; // this will terminate the program
 }
 
+server_state error_handler(void* ctx)
+{
+    FSMContext* context = (FSMContext*) ctx;
+    SET_TRACE(context, "Entering error_handler.", STATE_ERROR);
+    fprintf(stderr, "ERROR: %s\nIn the function: %s \nInside the file: %s\nOn the line: %d\n",
+            context->error_message, context->function_name, context->file_name, context->error_line);
+
+    return STATE_CLEANUP;
+}
+
 FSMState fsm_table[] = {
         { STATE_PARSE_ARGUMENTS,      parse_arguments_handler,      {STATE_HANDLE_ARGUMENTS,    STATE_ERROR} },
         { STATE_HANDLE_ARGUMENTS,     handle_arguments_handler,     {STATE_CONVERT_ADDRESS,     STATE_ERROR} },
@@ -180,8 +190,8 @@ FSMState fsm_table[] = {
         { STATE_POLL,                 poll_handler,                 {STATE_HANDLE_NEW_CLIENT,   STATE_HANDLE_CLIENTS} },
         { STATE_HANDLE_NEW_CLIENT,    handle_new_client_handler,    {STATE_POLL,                STATE_ERROR} },
         { STATE_HANDLE_CLIENTS,       handle_clients_handler,       {STATE_POLL,                STATE_ERROR} },
+        { STATE_ERROR,                error_handler,                {STATE_CLEANUP,             STATE_CLEANUP} },
         { STATE_CLEANUP,              cleanup_server_handler,       {STATE_EXIT,                STATE_ERROR} },
-        { STATE_ERROR,                NULL,                         {STATE_CLEANUP,             STATE_CLEANUP} },
         { STATE_EXIT,                 NULL,                         {STATE_EXIT,                STATE_EXIT} }
 };
 
@@ -194,11 +204,11 @@ int main(int argc, char **argv) {
 
     server_state current_state = STATE_PARSE_ARGUMENTS;
 
-    while(current_state != STATE_EXIT && current_state != STATE_ERROR) {
+    while(current_state != STATE_EXIT) {
         // Ensure the current state is within valid bounds
         if (current_state < 0 || current_state >= sizeof(fsm_table) / sizeof(FSMState)) {
             fprintf(stderr, "Error: Invalid state detected (%d).\n", current_state);
-            return 1;
+            return EXIT_FAILURE;
         }
 
         // Get the current FSM state
@@ -207,7 +217,7 @@ int main(int argc, char **argv) {
         // Ensure the state handler is not NULL
         if (!current_fsm_state->state_handler) {
             fprintf(stderr, "Error: Handler for state %d is NULL\n", current_state);
-            return 1;
+            return EXIT_FAILURE;
         }
 
         // Call the state handler
@@ -227,13 +237,5 @@ int main(int argc, char **argv) {
         }
 
     }
-
-    // Handle any errors outside of the loop
-    if (current_state == STATE_ERROR) {
-        fprintf(stderr, "ERROR: %s\nIn the function: %s \nInside the file: %s\nOn the line: %d\n",
-                context.error_message, context.function_name, context.file_name, context.error_line);
-
-    }
-
     return current_state == STATE_EXIT ? EXIT_SUCCESS : EXIT_FAILURE;
 }

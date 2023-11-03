@@ -48,7 +48,7 @@ client_state socket_create_handler(void* ctx) {
     FSMContext* context = (FSMContext*) ctx;
     SET_TRACE(context, "Entering socket_create_handler.", STATE_SOCKET_CREATE);
 
-    context->sockfd = socket_create(AF_INET, SOCK_STREAM, 0, ctx);
+    context->sockfd = socket_create(context->addr.ss_family, SOCK_STREAM, 0, ctx);
     if (context->sockfd == -1) {
         return STATE_ERROR;
     }
@@ -90,6 +90,15 @@ client_state cleanup_handler(void* ctx) {
     return STATE_EXIT; // Or return STATE_EXIT or similar if you have an exit state
 }
 
+client_state error_handler(void* ctx)
+{
+    FSMContext* context = (FSMContext*) ctx;
+    SET_TRACE(context, "Entering error_handler.", STATE_ERROR);
+    fprintf(stderr, "ERROR: %s\nIn the function: %s \nInside the file: %s\nOn the line: %d\n",
+            context->error_message, context->function_name, context->file_name, context->error_line);
+
+    return STATE_CLEANUP;
+}
 FSMState fsm_table[] = {
         { STATE_PARSE_ARGUMENTS,  parse_arguments_handler, { STATE_HANDLE_ARGUMENTS, STATE_ERROR } },
         { STATE_HANDLE_ARGUMENTS, handle_arguments_handler, { STATE_CONVERT_ADDRESS, STATE_ERROR } },
@@ -97,8 +106,9 @@ FSMState fsm_table[] = {
         { STATE_SOCKET_CREATE,    socket_create_handler,    { STATE_SOCKET_CONNECT, STATE_ERROR } },
         { STATE_SOCKET_CONNECT,   socket_connect_handler,   { STATE_SEND_FILE, STATE_ERROR } },
         { STATE_SEND_FILE,        send_file_handler,        { STATE_SEND_FILE, STATE_CLEANUP } },
+        { STATE_ERROR,            error_handler,            { STATE_CLEANUP, STATE_CLEANUP } },
         { STATE_CLEANUP,          cleanup_handler,          {  STATE_EXIT, STATE_ERROR } },
-        { STATE_EXIT, NULL, { STATE_EXIT, STATE_ERROR } }  // We won't really use this state's handler
+        { STATE_EXIT,             NULL,                     { STATE_EXIT, STATE_EXIT } }  // We won't really use this state's handler
 
 };
 int main(int argc, char *argv[]) {
@@ -110,21 +120,19 @@ int main(int argc, char *argv[]) {
 
     client_state current_state = STATE_PARSE_ARGUMENTS;
 
-    while (current_state != STATE_EXIT && current_state != STATE_ERROR) {
+    while (current_state != STATE_EXIT) {
         FSMState* current_fsm_state = &fsm_table[current_state];
         client_state next_state = current_fsm_state->state_handler(&context);
 
-
+        if (next_state == STATE_ERROR) {
+            current_state = next_state;
+            continue;
+        }
         if (next_state == current_fsm_state->next_states[0]) {
             current_state = current_fsm_state->next_states[0];
         } else {
             current_state = current_fsm_state->next_states[1];
         }
     }
-    if (current_state == STATE_ERROR) {
-        fprintf(stderr, "ERROR: %s\nIn the function: %s \nInside the file: %s\nOn the line: %d\n",
-                context.error_message, context.function_name, context.file_name, context.error_line);
-    }
-
-    return current_state == STATE_EXIT ? 0 : 1;
+    return current_state == STATE_EXIT ? EXIT_SUCCESS : EXIT_FAILURE;
 }

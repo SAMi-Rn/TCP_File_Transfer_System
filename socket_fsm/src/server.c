@@ -59,14 +59,16 @@ int handle_arguments(const char *binary_name, const char *ip_address, const char
     {
         SET_ERROR( context, "The address is required.");
         return -1;
-        usage(binary_name, "The ip address is required.");
+
     }
     if(port_str == NULL)
     {
         SET_ERROR( context, "The port is required.");
         return -1;
     }
-    parse_in_port_t(binary_name, port_str, port, ctx);
+    if(parse_in_port_t(binary_name, port_str, port, ctx)== -1){
+        return -1;
+    }
     return 0;
 }
 
@@ -111,7 +113,7 @@ void usage(const char *program_name, const char *message)
     {
         fprintf(stderr, "%s\n", message);
     }
-    fprintf(stderr, "Usage: %s [-h] <ip address> <port>\n", program_name);
+    fprintf(stderr, "Usage: %s [-h] <ip 4 or 6 address to bind to> <port> ./directory-to-store-files\n", program_name);
     fputs("Options:\n", stderr);
     fputs("  -h  Display this help message\n", stderr);
 }
