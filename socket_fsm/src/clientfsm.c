@@ -134,5 +134,5 @@ int main(int argc, char *argv[]) {
             current_state = current_fsm_state->next_states[1];
         }
     }
-    return current_state == STATE_EXIT ? EXIT_SUCCESS : EXIT_FAILURE;
+    return EXIT_SUCCESS;
 }
