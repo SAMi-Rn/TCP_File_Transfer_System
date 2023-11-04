@@ -106,9 +106,10 @@ FSMState fsm_table[] = {
         { STATE_SOCKET_CREATE,    socket_create_handler,    { STATE_SOCKET_CONNECT, STATE_ERROR } },
         { STATE_SOCKET_CONNECT,   socket_connect_handler,   { STATE_SEND_FILE, STATE_ERROR } },
         { STATE_SEND_FILE,        send_file_handler,        { STATE_SEND_FILE, STATE_CLEANUP } },
-        { STATE_ERROR,            error_handler,            { STATE_CLEANUP, STATE_CLEANUP } },
         { STATE_CLEANUP,          cleanup_handler,          {  STATE_EXIT, STATE_ERROR } },
-        { STATE_EXIT,             NULL,                     { STATE_EXIT, STATE_EXIT } }  // We won't really use this state's handler
+        { STATE_ERROR,            error_handler,            { STATE_CLEANUP, STATE_CLEANUP } },
+        { STATE_EXIT,             NULL,                     { STATE_EXIT, STATE_EXIT } }
+
 
 };
 int main(int argc, char *argv[]) {

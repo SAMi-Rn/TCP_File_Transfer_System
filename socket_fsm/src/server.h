@@ -55,8 +55,8 @@ typedef enum {
     STATE_POLL,
     STATE_HANDLE_NEW_CLIENT,
     STATE_HANDLE_CLIENTS,
-    STATE_ERROR,
     STATE_CLEANUP,
+    STATE_ERROR,
     STATE_EXIT // useful to have an explicit exit state
 } server_state;
 

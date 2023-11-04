@@ -190,8 +190,8 @@ FSMState fsm_table[] = {
         { STATE_POLL,                 poll_handler,                 {STATE_HANDLE_NEW_CLIENT,   STATE_HANDLE_CLIENTS} },
         { STATE_HANDLE_NEW_CLIENT,    handle_new_client_handler,    {STATE_POLL,                STATE_ERROR} },
         { STATE_HANDLE_CLIENTS,       handle_clients_handler,       {STATE_POLL,                STATE_ERROR} },
-        { STATE_ERROR,                error_handler,                {STATE_CLEANUP,             STATE_CLEANUP} },
         { STATE_CLEANUP,              cleanup_server_handler,       {STATE_EXIT,                STATE_ERROR} },
+        { STATE_ERROR,                error_handler,                {STATE_CLEANUP,             STATE_CLEANUP} },
         { STATE_EXIT,                 NULL,                         {STATE_EXIT,                STATE_EXIT} }
 };
 
