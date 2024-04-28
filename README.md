@@ -1,16 +1,15 @@
 # TCP File Transfer System
 
 ## Overview
-This project, part of the BCIT Network Security curriculum, features a TCP client-server application designed for efficient file transfers. Achieving a perfect score of 100%, the system leverages a Finite State Machine (FSM) for handling multiple client connections simultaneously and ensuring reliable data transmission over both IPv4 and IPv6 networks.
+This project, part of the BCIT Network Security curriculum, features a TCP client-server application designed for efficient file transfers. The system, which achieved a  score of 100%, leverages a Finite State Machine (FSM) to handle multiple client connections simultaneously and ensure reliable data transmission over IPv4 and IPv6 networks.
 
 ## Features
-- **Unlimited File Size & Type Transfer**: Supports seamless transfer of files of any size and type.
-- **Multiple File Transfer**: Clients can specify multiple files for transfer via command line arguments, including the use of wildcards.
-- **Multiplexed Server**: Server efficiently manages multiple client connections at the same time through multiplexing.
+- **Unlimited File Size & Type Transfer**: This feature supports seamless transfer of files of any size and type.
+- **Multiple File Transfer**: Clients can specify multiple files for transfer via command-line arguments, including wildcards.
+- **Multiplexed Server**: The server efficiently manages multiple client connections simultaneously through multiplexing.
 - **IPv4/IPv6 Optimization**: Optimized for use over both IPv4 and IPv6 networks.
-- **Cross-Platform Compatibility**: Compatible with various operating systems including macOS, Ubuntu, Fedora, and Kali, thanks to ISO C17 programming.
-- **Graceful Exit**: Server can be safely terminated with CTRL-C.
-- **Duplicate Handling**: Server appends a numerical suffix to duplicate filenames to avoid overwriting.
+- **Cross-Platform Compatibility**: Compatible with various operating systems including macOS, Ubuntu, Fedora, and Kali, with ISO C17 programming.
+- **Graceful Exit**: The server can be safely terminated with CTRL-C.
 
 ## Building Instructions
 
@@ -62,7 +61,7 @@ make
   - Utilize IPv6 addresses to operate the server and client.
 
 - **Exiting the Server**:
-  - Use CTRL-C to safely exit the server application.
+  - Use CTRL-C to exit the server application safely.
 
 - **Multiple File Transfer**:
   - Clients can transfer multiple files in one command by specifying each file path.
@@ -71,4 +70,4 @@ make
   - Clients can transfer files using wildcard notations to match file patterns.
 
 - **Handling Duplicates**:
-  - When receiving a file that already exists, the server will automatically rename it by appending a numerical suffix.
+  - When receiving a file that already exists, the server will automatically overwrite the old file.
