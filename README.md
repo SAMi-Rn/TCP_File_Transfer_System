@@ -54,16 +54,21 @@ make
 - **IP**: Define the server's IP address to connect (IPv4 or IPv6).
 - **PORT**: Set the port number to establish the connection with the server.
 ## Usage Examples
-- **IPv4 Server & Client**:
--- Run the server and client using IPv4 addresses for network communication.
-- **IPv6 Server & Client**:
---Utilize IPv6 addresses to operate the server and client.
-- **Exiting the Server**:
--- Use CTRL-C to safely exit the server application.
-- **Multiple File Transfer**:
--- Clients can transfer multiple files in one command by specifying each file path.
-- **Wildcard File Selection**:
--- Clients can transfer files using wildcard notations to match file patterns.
-- **Handling Duplicates**:
--- When receiving a file that already exists, the server will automatically rename it by appending a numerical suffix.
 
+- **IPv4 Server & Client**:
+  - Run the server and client using IPv4 addresses for network communication.
+
+- **IPv6 Server & Client**:
+  - Utilize IPv6 addresses to operate the server and client.
+
+- **Exiting the Server**:
+  - Use CTRL-C to safely exit the server application.
+
+- **Multiple File Transfer**:
+  - Clients can transfer multiple files in one command by specifying each file path.
+
+- **Wildcard File Selection**:
+  - Clients can transfer files using wildcard notations to match file patterns.
+
+- **Handling Duplicates**:
+  - When receiving a file that already exists, the server will automatically rename it by appending a numerical suffix.
