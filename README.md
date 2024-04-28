@@ -12,7 +12,11 @@ This project, part of the BCIT Network Security curriculum, features a TCP clien
 - **Graceful Exit**: The server can be safely terminated with CTRL-C.
 
 ## Building Instructions
-
+### Clone the repository
+```sh
+git clone https://github.com/BScACS-T2/reliable-udp.git
+cd reliable-udp
+```
 ### Server
 To build the server application, use the following commands:
 ```sh
