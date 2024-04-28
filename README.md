@@ -14,8 +14,8 @@ This project, part of the BCIT Network Security curriculum, features a TCP clien
 ## Building Instructions
 ### Clone the repository
 ```sh
-git clone https://github.com/BScACS-T2/reliable-udp.git
-cd reliable-udp
+git clone https://github.com/SAMi-Rn/TCP_File_Transfer_System.git
+cd TCP_File_Transfer_System
 ```
 ### Server
 To build the server application, use the following commands:
